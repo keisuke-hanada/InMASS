@@ -1,7 +1,7 @@
 # Integrate Meta-analysis into Specific Study (InMASS)
 
 This repository provides an **R implementation** of **InMASS**, as introduced in the pre-print paper:  
-📄 **[Integrate Meta-analysis into Specific Study (InMASS) for Estimating Conditional Average Treatment Effect](url)** 
+📄 **[Integrate Meta-analysis into Specific Study (InMASS) for Estimating Conditional Average Treatment Effect](https://arxiv.org/abs/2503.21091)** 
 
 
 ## Repository Structure
