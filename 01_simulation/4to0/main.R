@@ -82,8 +82,9 @@ gc()
 
 
 
-source(paste(simfolder, "analysis_methods.R", sep=""))
-methods <- c("propose_method")
+
+source(paste(simfolder, "/analysis_methods.R", sep=""))
+methods <- c("ipd_method", "propose_method", "meta_method")
 formulas <- 1:2
 
 
@@ -98,7 +99,6 @@ for(l in 1:length(metadat03$X)){
   dat01$params$formula <- as.formula(dat01$params$formula)
   
   
-
   for(i.formula in formulas){
     if(i.formula == 1){
       method_formula <- yik ~ 1 + x1k
@@ -109,13 +109,24 @@ for(l in 1:length(metadat03$X)){
     for(method in methods){
       message(method)
       func <- get(method)
-      res01 <- func(formula=method_formula, dat=dat01)
-      resfile_name <- paste0(simfolder, "/result/", method, "_formula", i.formula, "_", unique_key, ".rds", sep="")
-      saveRDS(res01, file=resfile_name)
+      
+      if (method == "meta_method") {
+        
+        subfname <- paste0(simfolder, "/result/", method, "_formula", i.formula, "_", unique_key, sep="")
+        res01 <- func(formula=method_formula, dat=dat01, subfname=subfname)
+        
+      } else {
+        
+        res01 <- func(formula=method_formula, dat=dat01)
+        
+        resfile_name <- paste0(simfolder, "/result/", method, "_formula", i.formula, "_", unique_key, ".rds", sep="")
+        saveRDS(res01, file=resfile_name)
+        
+      }
+      
       rm(res01)
       gc()
     }
-    
     
   }
   
@@ -125,8 +136,10 @@ for(l in 1:length(metadat03$X)){
 
 
 
-source(paste(simfolder, "evaluation_methods.R", sep=""))
-evals_func <- c("meanfunc", "varfunc", "cpfunc", "powerfunc")
+source(paste(simfolder, "/evaluation_methods.R", sep=""))
+evals_func <- c("meanfunc", "varfunc", "cpfunc", "powerfunc", "biasfunc")
+methods <- c("propose_method", "meta_method")
+
 
 
 metadat04 <- read.csv(file=paste(simfolder, "/meta_simdata.csv", sep=""))
@@ -154,41 +167,62 @@ for(l in 1:length(metadat04$key)){
     }
     
     for(method in methods){
-      resfile_name <- paste0(simfolder, "/result/", method, "_formula", i.formula, "_", unique_key, ".rds", sep="")
       
-      dat11 <- readRDS(resfile_name)
+      if (method == "meta_method") {
+        
+        subfname <- paste0(simfolder, "/result/", method, "_formula", i.formula, "_", unique_key, sep="")
+        resfile_name <- paste0(subfname, "_ite", 1:10000, ".rds", sep="")
+        dat11 <- lapply(resfile_name, readRDS)
+        dat11$params <- dat11[[1]]$params
+        
+      } else {
+        
+        resfile_name <- paste0(simfolder, "result/", method, "_formula", i.formula, "_", unique_key, ".rds", sep="")
+        dat11 <- readRDS(resfile_name)
+        
+      }
+      
       dat11$x2k_m <- x2k_m
       
       
       for(evalfun in evals_func){
         mes01 <- paste(l, "/", length(metadat04$key), ", method:", method, ", formula:", i.formula, ", eval:", evalfun)
         message(mes01)
-        func <- get(evalfun)
-        evaluate <- func(dat11, method)
-        eval01 <- list(params=params, eval=evalfun, value=evaluate)
         
-
-        evalfile_name <- paste0(simfolder, "/evaluation/", method, "_", evalfun, "_", unique_key, ".rds", sep="")
-        saveRDS(eval01, file=evalfile_name)
-        
-        paramd <- as.data.frame(params)[1,]
-        row.names(paramd) <- NULL
-        
-        if(evalfun != "powerfunc"){
-          dat02eval <- data.frame(paramd, method=method, formula=i.formula, eval=evalfun, mean=mean(evaluate), sd=sd(evaluate), 
-                                  params=params, key=unique_key)
-        }else{
-          dat02eval <- data.frame(paramd, method=method, formula=i.formula, eval=evalfun, mean=evaluate$power, sd=evaluate$x, 
-                                  params=params, key=unique_key)
+        if ( (method != "meta_method") | (method=="meta_method" & evalfun=="biasfunc") ) {
+          
+          func <- get(evalfun)
+          evaluate <- func(dat11, method)
+          eval01 <- list(params=params, eval=evalfun, value=evaluate)
+          
+          
+          evalfile_name <- paste0(simfolder, "/evaluation/", method, "_", evalfun, "_", unique_key, ".rds", sep="")
+          saveRDS(eval01, file=evalfile_name)
+          
+          paramd <- as.data.frame(params)[1,]
+          row.names(paramd) <- NULL
+          
+          
+          if(evalfun %in% c("meanfunc", "varfunc", "cpfunc")){
+            dat02eval <- data.frame(paramd, method=method, formula=i.formula, eval=evalfun, mean=mean(evaluate), sd=sd(evaluate), 
+                                    params=params, key=unique_key)
+          }else if (evalfun == "powerfunc") {
+            dat02eval <- data.frame(paramd, method=method, formula=i.formula, eval=evalfun, mean=evaluate$power, sd=evaluate$x, 
+                                    params=params, key=unique_key)
+          }else if (evalfun == "biasfunc") {
+            dat02eval <- data.frame(paramd, method=method, formula=i.formula, eval=evalfun, mean=evaluate, sd=NA, 
+                                    params=params, key=unique_key)
+          }
+          
+          dat01eval <- rbind(dat01eval, dat02eval)
+          
         }
-        
-        dat01eval <- rbind(dat01eval, dat02eval)
         
       }
     }
     
   }
-
+  
 }
 
 head(dat01eval)

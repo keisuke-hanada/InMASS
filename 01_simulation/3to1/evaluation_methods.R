@@ -41,4 +41,12 @@ powerfunc <- function(res, method, b.max=4, h=0.01){
 
 
 
-
+biasfunc <- function(res, method) {
+  
+  btrue <- res$params$beta[2]
+  res$params <- NULL
+  res$x2k_m <- NULL
+  bias <- sapply(res, function(x) { x$coefficients[2] - btrue})
+  return(bias)
+  
+}

@@ -2,8 +2,8 @@
 library(dplyr)
 library(ggplot2)
 
-foldername <- "paper/"
-subfolder <- c("1to1", "3to1", "4to0")
+foldername <- "04_simulation-v1.0/"
+subfolder <- c("test_1to1", "test_3to1", "test_4to0")
 filename <- "/total_evaluates.csv"
 fname <- paste(foldername, subfolder, filename, sep="")
 dname <- c("1:1-", "3:1-", "treatment-")
@@ -38,6 +38,7 @@ model.labs <- c("Normal", "Chi-squared")
 names(model.labs) <- unique(d10$model)
 formula.labs <- c("Model misspesified", "Model spesified")
 names(formula.labs) <- unique(d10$formula)
+
 
 
 g1dat <- subset(d10, subset=eval=="meanfunc")
@@ -94,6 +95,13 @@ ggsave(paste(foldername, "integrate/figure-1-1to1-mse.pdf", sep="" ), g1, width=
 ggsave(paste(foldername, "integrate/figure-1-1to1-power-model1.pdf", sep="" ), g2, width=8, height=8, dpi=300)
 ggsave(paste(foldername, "integrate/figure-1-1to1-power-model2.pdf", sep="" ), g3, width=8, height=8, dpi=300)
 
+
+
+g4dat <- subset(d10, subset=eval=="biasfunc" & n==40)
+g4 <- ggplot(g4dat, aes(x=Method, y=mean)) +
+  geom_boxplot() +
+  facet_grid(model~strata)
+g4
 
 
 
@@ -243,6 +251,7 @@ for(i in 1:length(dname)){
   d01 <- read.csv(fname[i])
   d01$cmethod[d01$method=="ipd_method"] <- ""
   d01$cmethod[d01$method=="propose_method"] <- "+InMASS"
+  d01$cmethod[d01$method=="meta_method"] <- " MA"
   d01$cformula[d01$formula==1] <- "MID"
   d01$cformula[d01$formula==2] <- "ID"
   d01 <- d01 %>% subset(strata==10) %>%
@@ -312,4 +321,76 @@ ggsave(paste(foldername, "integrate/main-figure-2-power-model1.pdf", sep="" ), g
 ggsave(paste(foldername, "integrate/main-figure-3-power-model2.pdf", sep="" ), g3, width=8, height=5, dpi=300)
 
 
+
+g4dat <- subset(d10, subset=eval=="biasfunc" & n==40)
+g4 <- ggplot(g4dat, aes(x=Method, y=mean)) +
+  geom_hline(yintercept=0, linetype=2) +
+  geom_boxplot() +
+  ylab(expression("Bias of "~delta[T])) +
+  facet_grid(formula ~ model, labeller = labeller(formula = formula.labs, model = model.labs)) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle=25, hjust=1, size=12),
+        strip.text.x = element_text(size=16),
+        strip.text.y = element_text(size=16),
+        axis.title = element_text(size=16)) +
+  guides(color = guide_legend(nrow = 1),
+         shape = guide_legend(nrow = 1),
+         fill  = guide_legend(nrow = 1))
+g4
+ggsave(paste(foldername, "integrate/main-figure-0-bias.pdf", sep="" ), g4, width=12, height=6, dpi=300)
+
+
+
+
+### all bias plots ###
+stratas <- c(5,10,30)
+ns <- c(20,40,100)
+
+d10 <- data.frame()
+for(i in 1:length(dname)){
+  d01 <- read.csv(fname[i])
+  d01$cmethod[d01$method=="ipd_method"] <- ""
+  d01$cmethod[d01$method=="propose_method"] <- "+InMASS"
+  d01$cmethod[d01$method=="meta_method"] <- " MA"
+  d01$cformula[d01$formula==1] <- "MID"
+  d01$cformula[d01$formula==2] <- "ID"
+  d01 <- d01 %>%
+    mutate(
+      Method = paste(substr(dname[i], 1, nchar(dname[i])-1), cmethod, sep=""),
+      dname = dname[i]
+    )
+  d10 <- rbind(d10, d01)
+}
+d10$formula <- factor(d10$formula, levels = c(2, 1))
+
+
+pdf(paste(foldername, "integrate/main-figure-0-bias-all.pdf", sep="" ), width=16, height=6)
+
+for(st in stratas) {
+  for (nval in ns) {
+    
+    g4dat <- subset(d10, subset=eval=="biasfunc" & strata==st & n==nval)
+    g4 <- ggplot(g4dat, aes(x=Method, y=mean)) +
+      geom_hline(yintercept=0, linetype=2) +
+      geom_boxplot() +
+      coord_cartesian(ylim=c(-2,2)) +
+      labs(
+        title = paste(st, " studies with n=", nval, sep=""),
+        y = expression("Bias of "~delta[T])
+      ) +
+      facet_grid(formula ~ model, labeller = labeller(formula = formula.labs, model = model.labs)) +
+      theme(legend.position = "bottom",
+            axis.text.x = element_text(angle=25, hjust=1, size=12),
+            strip.text.x = element_text(size=16),
+            strip.text.y = element_text(size=16),
+            axis.title = element_text(size=16)) +
+      guides(color = guide_legend(nrow = 1),
+             shape = guide_legend(nrow = 1),
+             fill  = guide_legend(nrow = 1))
+    print(g4)
+    
+
+  }
+}
+dev.off()
 

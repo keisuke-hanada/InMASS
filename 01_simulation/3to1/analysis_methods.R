@@ -20,6 +20,84 @@ ipd_method <- function(formula, dat) {
 }
 
 
+### meta-analysis ###
+meta_method <- function(formula, dat, subfname) {
+  nsim <- dat$params$nsim
+  
+  cl <- makeCluster(parallel::detectCores()-8)
+  registerDoParallel(cl)
+  
+  ipd_list <- split(dat$target_ipd, dat$target_ipd$nsim)
+  mean_list <- split(subset(dat$strata_ad, var=="mean"), subset(dat$strata_ad, var=="mean")$nsim)
+  var_list <- split(subset(dat$strata_ad, var=="var"), subset(dat$strata_ad, var=="var")$nsim)
+  params <- dat$params
+  
+  
+  res_list <- foreach(i = 1:nsim, 
+                      data.ipd = ipd_list,
+                      data.ma.mean = mean_list,
+                      data.ma.var = var_list,
+                      .export = c("iwlm", "inmass", "params", "subfname", "formula"),
+                      .packages = c("stats", "metafor")) %dopar% {
+                        # data.ipd <- subset(dat$target_ipd, subset=nsim==i)
+                        # data.ma.mean <- subset(dat$strata_ad, subset=nsim==i & var=="mean")
+                        # data.ma.var <- subset(dat$strata_ad, subset=nsim==i & var=="var")
+                        
+                        ad0 <- apply(subset(data.ipd, x1k==0), 2, mean)[-ncol(data.ipd)]
+                        ad0_df <- cbind(
+                          as.data.frame(t(ad0)),
+                          strata = 0,
+                          nsim   = i,
+                          var    = "mean",
+                          n      = nrow(data.ipd)
+                        )
+                        ad0_df <- ad0_df[, names(data.ma.mean)]
+                        ad1 <- apply(subset(data.ipd, x1k==1), 2, mean)[-ncol(data.ipd)]
+                        ad1_df <- cbind(
+                          as.data.frame(t(ad1)),
+                          strata = 0,
+                          nsim   = i,
+                          var    = "mean",
+                          n      = nrow(data.ipd)
+                        )
+                        ad1_df <- ad1_df[, names(data.ma.mean)]
+                        data.ma.mean <- rbind(data.ma.mean, ad0_df, ad1_df)
+                        data.ma.mean
+                        
+                        v2y <- c(data.ma.var$yik,
+                                 var(data.ipd$yik[data.ipd$x1k==0]),
+                                 var(data.ipd$yik[data.ipd$x1k==1])
+                        )
+                        v2y
+                        
+                        fit <- rma.uni(yi=data.ma.mean$yik, vi=v2y, mods=formula, data=data.ma.mean, method="DL")
+                        
+                        params_out <- NULL
+                        if (i == 1) params_out <- params
+                        res <-   list(
+                          coefficients = as.numeric(fit$b),
+                          se    = as.numeric(fit$se),
+                          ci_lb = as.numeric(fit$ci.lb),
+                          ci_ub = as.numeric(fit$ci.ub),
+                          tau2  = if (!is.null(fit$tau2)) as.numeric(fit$tau2) else NA_real_,
+                          QE    = if (!is.null(fit$QE))   as.numeric(fit$QE)   else NA_real_,
+                          k     = if (!is.null(fit$k))    as.integer(fit$k)    else NA_integer_,
+                          params = params_out
+                        )
+                        resfile_name <- paste0(subfname, "_ite", i, ".rds", sep="")
+                        saveRDS(res, file=resfile_name)
+                        
+                        gc()
+                        return()
+                      }
+  stopCluster(cl)
+  
+  
+  return()
+}
+
+
+
 
 propose_method <- function(formula, dat, alpha = 0.05){
   formula.ma <- as.formula(dat$params$formula)
