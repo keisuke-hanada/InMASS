@@ -1,0 +1,39 @@
+# R session and history
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# R package/build artifacts
+*.Rcheck/
+*.tar.gz
+
+# Simulation raw outputs
+results/raw/
+01_simulation/results/raw/
+
+# Large intermediate outputs
+*.rds
+*.RDS
+*.rda
+*.RData
+*.feather
+*.parquet
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+results_plugin*/
+results/raw/
+results_*/

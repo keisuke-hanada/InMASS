@@ -1,0 +1,13 @@
+"scenario_id","estimator","formula_id","n_replicates","n_converged","bias","mse","power","mean_estimate","mean_se","allocation","K","n","covariate_distribution","true_delta"
+"main_1to1_K05_n020_normal","target_only","misspecified",2,2,-0.142265082248703,0.0541572642285781,1,1.8577349177513,0.57945222290552,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","inmass","misspecified",2,2,0.169144229112702,0.0458822042437797,1,2.1691442291127,0.218668626241244,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","meta_regression","misspecified",2,2,0.575768932475945,0.333848108069547,1,2.57576893247594,0.736713187295863,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","target_only","correct",2,2,0.0692217726877419,0.0948941085634184,1,2.06922177268774,0.457265158355925,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","inmass","correct",2,2,0.107109226177914,0.0293003437799709,1,2.10710922617791,0.154914781245434,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","meta_regression","correct",2,2,0.133695521471885,0.0226551386833262,1,2.13369552147189,0.841834379062357,"1to1",5,20,"normal",2
+"main_4to0_K05_n020_chi2","target_only","misspecified",2,0,NA,NA,NA,NA,NA,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","inmass","misspecified",2,2,0.397487897569079,0.206765636011354,1,2.39748789756908,0.48581633006489,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","meta_regression","misspecified",2,2,0.96507460900481,1.22349861652623,1,2.96507460900481,0.68382902619936,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","target_only","correct",2,0,NA,NA,NA,NA,NA,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","inmass","correct",2,2,0.182409649059395,0.0605612769171282,1,2.18240964905939,0.399631879938809,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","meta_regression","correct",2,2,0.32595198228006,0.16923920981447,1,2.32595198228006,0.884308053741903,"4to0",5,20,"chi2",2

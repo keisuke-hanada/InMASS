@@ -1,0 +1,7 @@
+"scenario_id","estimator","formula_id","n_replicates","n_converged","bias","mse","power","mean_estimate","mean_se","allocation","K","n","covariate_distribution","true_delta"
+"main_4to0_K05_n020_chi2","target_only","misspecified",2,0,NA,NA,NA,NA,NA,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","inmass","misspecified",2,2,0.397487897569079,0.206765636011354,1,2.39748789756908,0.48581633006489,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","meta_regression","misspecified",2,2,0.96507460900481,1.22349861652623,1,2.96507460900481,0.68382902619936,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","target_only","correct",2,0,NA,NA,NA,NA,NA,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","inmass","correct",2,2,0.182409649059395,0.0605612769171282,1,2.18240964905939,0.399631879938809,"4to0",5,20,"chi2",2
+"main_4to0_K05_n020_chi2","meta_regression","correct",2,2,0.32595198228006,0.16923920981447,1,2.32595198228006,0.884308053741903,"4to0",5,20,"chi2",2

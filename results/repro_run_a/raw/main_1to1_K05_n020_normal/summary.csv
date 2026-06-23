@@ -1,0 +1,7 @@
+"scenario_id","estimator","formula_id","n_replicates","n_converged","bias","mse","power","mean_estimate","mean_se","allocation","K","n","covariate_distribution","true_delta"
+"main_1to1_K05_n020_normal","target_only","misspecified",2,2,-0.142265082248703,0.0541572642285781,1,1.8577349177513,0.57945222290552,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","inmass","misspecified",2,2,0.169144229112702,0.0458822042437797,1,2.1691442291127,0.218668626241244,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","meta_regression","misspecified",2,2,0.575768932475945,0.333848108069547,1,2.57576893247594,0.736713187295863,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","target_only","correct",2,2,0.0692217726877419,0.0948941085634184,1,2.06922177268774,0.457265158355925,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","inmass","correct",2,2,0.107109226177914,0.0293003437799709,1,2.10710922617791,0.154914781245434,"1to1",5,20,"normal",2
+"main_1to1_K05_n020_normal","meta_regression","correct",2,2,0.133695521471885,0.0226551386833262,1,2.13369552147189,0.841834379062357,"1to1",5,20,"normal",2
