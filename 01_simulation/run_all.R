@@ -6,6 +6,7 @@ source(file.path("01_simulation", "R", "aggregate_data.R"))
 source(file.path("01_simulation", "R", "data_generation.R"))
 source(file.path("01_simulation", "R", "meta_regression.R"))
 source(file.path("01_simulation", "R", "pseudo_ipd.R"))
+source(file.path("01_simulation", "R", "ripd_truncation.R"))
 source(file.path("01_simulation", "R", "density_ratio.R"))
 source(file.path("01_simulation", "R", "inmass.R"))
 source(file.path("01_simulation", "R", "estimators.R"))
@@ -13,8 +14,11 @@ source(file.path("01_simulation", "R", "evaluation.R"))
 source(file.path("01_simulation", "R", "plotting.R"))
 source(file.path("01_simulation", "scripts", "run_main_scenarios.R"))
 source(file.path("01_simulation", "scripts", "run_multicov_scenarios.R"))
+source(file.path("01_simulation", "scripts", "run_nonlinear_scenarios.R"))
+source(file.path("01_simulation", "scripts", "run_ripd_truncation_diagnostics.R"))
 source(file.path("01_simulation", "scripts", "validate_pilot_internal.R"))
 source(file.path("01_simulation", "scripts", "validate_multicov_internal.R"))
+source(file.path("01_simulation", "scripts", "validate_nonlinear_internal.R"))
 source(file.path("01_simulation", "scripts", "validate_pilot_against_v1.R"))
 source(file.path("01_simulation", "scripts", "check_reproducibility.R"))
 source(file.path("01_simulation", "scripts", "make_figures_tables.R"))
@@ -28,9 +32,11 @@ parse_arg <- function(name, default = NULL) {
 }
 
 mode <- parse_arg("mode", "pilot")
-default_nsim <- if (mode %in% c("pilot", "validate-internal", "validate-pilot", "pilot-multicov", "validate-multicov")) {
+default_nsim <- if (mode %in% c("pilot", "validate-internal", "validate-pilot", "pilot-multicov", "validate-multicov", "pilot-nonlinear", "validate-nonlinear")) {
   "10"
-} else if (mode %in% c("make-figures", "figures", "make-multicov-figures")) {
+} else if (mode %in% c("make-figures", "figures", "make-multicov-figures", "make-nonlinear-figures", "make-ripd-truncation-figures")) {
+  "10"
+} else if (mode %in% c("diagnose-ripd-truncation", "summarize-ripd-truncation")) {
   "10"
 } else if (mode == "check-reproducibility") {
   "2"
@@ -52,6 +58,14 @@ if (mode == "pilot") {
   invisible(run_multicov_scenarios(paths, nsim = nsim, base_seed = base_seed))
 } else if (mode == "validate-multicov") {
   invisible(validate_multicov_internal(paths, nsim = nsim))
+} else if (mode == "pilot-nonlinear") {
+  invisible(run_nonlinear_scenarios(paths, nsim = nsim, base_seed = base_seed))
+} else if (mode == "validate-nonlinear") {
+  invisible(validate_nonlinear_internal(paths, nsim = nsim))
+} else if (mode == "diagnose-ripd-truncation") {
+  invisible(run_ripd_truncation_diagnostics(paths, nsim = nsim, base_seed = base_seed))
+} else if (mode == "summarize-ripd-truncation") {
+  invisible(summarize_existing_ripd_truncation(paths, nsim = nsim))
 } else if (mode == "check-reproducibility") {
   invisible(check_pilot_reproducibility(getwd(), nsim = nsim, base_seed = base_seed))
 } else if (mode == "full") {
@@ -60,6 +74,10 @@ if (mode == "pilot") {
   invisible(make_figures_tables(paths, nsim = nsim, pilot = output_root != "results"))
 } else if (mode == "make-multicov-figures") {
   invisible(make_multicov_figures_tables(paths, nsim = nsim, pilot = output_root != "results"))
+} else if (mode == "make-nonlinear-figures") {
+  invisible(make_nonlinear_figures_tables(paths, nsim = nsim, pilot = output_root != "results"))
+} else if (mode == "make-ripd-truncation-figures") {
+  invisible(make_ripd_truncation_figures_tables(paths, nsim = nsim, pilot = output_root != "results"))
 } else {
   stop("Unknown mode: ", mode)
 }

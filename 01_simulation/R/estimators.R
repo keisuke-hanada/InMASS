@@ -117,11 +117,16 @@ fit_plugin_replicate <- function(target_ipd, data_mean, data_var, formula, scena
 
 fit_inmass_replicate <- function(target_ipd, data_mean, data_var, formula, formula_ma,
                                  scenario_id, replicate, formula_id, allocation, strata,
-                                 base_seed = 1234L) {
+                                 base_seed = 1234L, density_covariates = NULL,
+                                 density_include_quadratic = TRUE) {
   ps_meta <- if (allocation == "1to1") 1 else 2
   seed <- replicate_seed(scenario_id, replicate, paste("inmass", formula_id), base_seed)
   captured <- capture_warnings(
-    fit_inmass_core(formula, formula_ma, data_mean, data_var, target_ipd, strata, ps_meta, seed)
+    fit_inmass_core(
+      formula, formula_ma, data_mean, data_var, target_ipd, strata, ps_meta, seed,
+      density_covariates = density_covariates,
+      density_include_quadratic = density_include_quadratic
+    )
   )
   fit <- captured$value
   if (!isTRUE(fit$converged)) {
@@ -146,6 +151,15 @@ fit_inmass_replicate <- function(target_ipd, data_mean, data_var, formula, formu
 run_estimators_for_scenario <- function(dat, spec, formula_spec, base_seed = 1234L) {
   nsim <- dat$params$nsim
   treatment_var <- spec$treatment_var %||% "x1k"
+  density_covariates <- spec$density_covariates %||% NULL
+  if (!is.null(density_covariates) && length(density_covariates) == 1L) {
+    density_covariates <- strsplit(density_covariates, "+", fixed = TRUE)[[1]]
+  }
+  density_include_quadratic <- if (!is.null(spec$density_include_quadratic)) {
+    isTRUE(spec$density_include_quadratic)
+  } else {
+    TRUE
+  }
   rows <- vector("list", nsim * 4L)
   pos <- 1L
   for (replicate in seq_len(nsim)) {
@@ -159,7 +173,9 @@ run_estimators_for_scenario <- function(dat, spec, formula_spec, base_seed = 123
     rows[[pos]] <- fit_inmass_replicate(
       target_ipd, data_mean, data_var, formula_spec$formula, spec$formula_ma,
       spec$scenario_id, replicate, formula_spec$formula_id,
-      spec$allocation, spec$K, base_seed
+      spec$allocation, spec$K, base_seed,
+      density_covariates = density_covariates,
+      density_include_quadratic = density_include_quadratic
     )
     pos <- pos + 1L
     rows[[pos]] <- fit_meta_replicate(target_ipd, data_mean, data_var, formula_spec$formula, spec$scenario_id, replicate, formula_spec$formula_id, treatment_var)

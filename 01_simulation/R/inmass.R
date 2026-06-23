@@ -35,13 +35,19 @@ confint.iwlm <- function(object, level = 0.95, ...) {
 }
 
 fit_inmass_core <- function(formula, formula_ma, data_mean, data_var, target_ipd, strata,
-                            ps_meta, seed) {
+                            ps_meta, seed, density_covariates = NULL,
+                            density_include_quadratic = TRUE) {
   meta_fit <- fit_meta_regression(data_mean, data_var, formula_ma)
   pseudo <- reconstruct_pseudo_ipd(data_mean, data_var, formula_ma, meta_fit, strata, seed)
   if (!nrow(pseudo)) {
     return(list(converged = FALSE, error = "Pseudo-IPD reconstruction failed."))
   }
-  weighted <- estimate_density_ratio(target_ipd, pseudo, formula_ma, ps_meta = ps_meta)
+  weighted <- estimate_density_ratio(
+    target_ipd, pseudo, formula_ma,
+    ps_meta = ps_meta,
+    density_covariates = density_covariates,
+    density_include_quadratic = density_include_quadratic
+  )
   fit <- tryCatch(
     iwlm(stats::as.formula(formula), data = weighted$data, weights = weighted$data$weight),
     error = function(e) e

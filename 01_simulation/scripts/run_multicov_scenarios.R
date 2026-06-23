@@ -12,6 +12,7 @@ run_multicov_scenarios <- function(paths, nsim = 10L, base_seed = 1234L, scenari
 
   all_results <- list()
   all_summaries <- list()
+  all_truncation <- list()
   result_pos <- 1L
   summary_pos <- 1L
 
@@ -35,6 +36,7 @@ run_multicov_scenarios <- function(paths, nsim = 10L, base_seed = 1234L, scenari
         file.path(raw_dir, paste0("results_", formula_spec$formula_id, ".rds"))
       )
     }
+    all_truncation[[i]] <- collect_ripd_truncation_for_scenario(dat, spec_list, formulas, base_seed)
 
     scenario_results <- do.call(rbind, scenario_results)
     scenario_results$true_delta <- spec$truth
@@ -64,5 +66,7 @@ run_multicov_scenarios <- function(paths, nsim = 10L, base_seed = 1234L, scenari
   summary <- do.call(rbind, all_summaries)
   write_csv(results, file.path(paths$summary, sprintf("robustness_multicov_results_nsim%d.csv", nsim)))
   write_csv(summary, file.path(paths$summary, sprintf("robustness_multicov_summary_nsim%d.csv", nsim)))
+  truncation <- do.call(rbind, all_truncation)
+  write_csv(truncation, truncation_family_file(paths, "robustness_multicov", nsim))
   list(results = results, summary = summary)
 }

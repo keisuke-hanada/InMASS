@@ -359,3 +359,231 @@ make_multicov_figures <- function(paths, nsim = 10L, pilot = TRUE) {
   write_csv(data.frame(file = generated, stringsAsFactors = FALSE), file.path(paths$summary, sprintf("robustness_multicov_generated_figures_nsim%d.csv", nsim)))
   generated
 }
+
+make_nonlinear_figures <- function(paths, nsim = 10L, pilot = TRUE) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for figure generation.")
+  }
+  results_file <- file.path(paths$summary, sprintf("robustness_nonlinear_results_nsim%d.csv", nsim))
+  if (!file.exists(results_file)) stop("Results file not found: ", results_file)
+
+  results <- utils::read.csv(results_file, stringsAsFactors = FALSE)
+  d <- prepare_legacy_plot_data(results)
+  d$model <- "nonlinear"
+  d$Method <- d$Method_main
+  d$formula <- factor(d$formula, levels = c(2, 1))
+
+  labs <- legacy_labellers(d)
+  labs$model <- c("Nonlinear" = "nonlinear")
+
+  out_root <- file.path(figure_paths(paths, pilot = pilot)$supplement, "robustness_nonlinear")
+  dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
+  generated <- character()
+
+  mse_data <- aggregate_mse_legacy(d, "Method_main")
+  power_data <- aggregate_power_curve_legacy(d, "Method_main", b.max = 4, h = 0.1)
+  bias_data <- bias_rows_legacy(d, "Method_main")
+  mse_data$formula <- factor(mse_data$formula, levels = c(2, 1))
+  power_data$formula <- factor(power_data$formula, levels = c(2, 1))
+  bias_data$formula <- factor(bias_data$formula, levels = c(2, 1))
+  power_plot_data <- power_data[power_data$strata == 10, , drop = FALSE]
+  validate_power_plot_data(
+    power_plot_data,
+    key_cols = c("n", "formula", "Method", "sd"),
+    path = file.path(paths$summary, sprintf("robustness_nonlinear_power_plot_diagnostics_nsim%d.csv", nsim))
+  )
+
+  generated <- c(generated,
+    save_plot(
+      legacy_mse_plot(mse_data, labs, stats::as.formula("formula ~ strata")),
+      file.path(out_root, "robustness_nonlinear_mse.pdf"),
+      6,
+      4
+    ),
+    save_plot(
+      legacy_power_plot(power_plot_data, labs, "Nonlinear robustness scenario", stats::as.formula("formula ~ n")),
+      file.path(out_root, "robustness_nonlinear_power.pdf"),
+      8,
+      5
+    ),
+    save_plot(
+      legacy_bias_plot(bias_data[bias_data$n == 40 & bias_data$strata == 10, , drop = FALSE], labs),
+      file.path(out_root, "robustness_nonlinear_bias.pdf"),
+      12,
+      6
+    )
+  )
+
+  all_bias_path <- file.path(out_root, "robustness_nonlinear_bias_all.pdf")
+  grDevices::pdf(all_bias_path, width = 16, height = 6)
+  for (st in c(5, 10, 30)) {
+    for (nval in c(20, 40, 100)) {
+      g4dat <- bias_data[bias_data$strata == st & bias_data$n == nval, , drop = FALSE]
+      print(legacy_bias_plot(g4dat, labs, all_bias = TRUE, title = paste(st, " studies with n=", nval, sep = "")))
+    }
+  }
+  grDevices::dev.off()
+  generated <- c(generated, all_bias_path)
+
+  generated <- normalizePath(generated, winslash = "/", mustWork = FALSE)
+  write_csv(data.frame(file = generated, stringsAsFactors = FALSE), file.path(paths$summary, sprintf("robustness_nonlinear_generated_figures_nsim%d.csv", nsim)))
+  generated
+}
+
+ripd_allocation_labels <- function(allocation) {
+  labels <- c("1to1" = "1:1", "3to1" = "3:1", "4to0" = "Treatment only")
+  unname(labels[allocation])
+}
+
+validate_ripd_truncation_plot_data <- function(plot_data, expected_files, path) {
+  key_cols <- c("scenario_type", "allocation", "K", "n", "formula_id")
+  duplicate_keys <- duplicated(plot_data[key_cols])
+  rate_missing <- is.na(plot_data$truncation_rate)
+  rate_out_of_range <- !rate_missing & (plot_data$truncation_rate < 0 | plot_data$truncation_rate > 1)
+  files_created <- file.exists(expected_files)
+  diagnostics <- data.frame(
+    check = c(
+      "truncation_rate_in_unit_interval",
+      "no_duplicate_plot_rows",
+      "no_missing_truncation_rate",
+      "all_expected_files_created"
+    ),
+    passed = c(
+      !any(rate_out_of_range),
+      !any(duplicate_keys),
+      !any(rate_missing),
+      all(files_created)
+    ),
+    failures = c(
+      sum(rate_out_of_range),
+      sum(duplicate_keys),
+      sum(rate_missing),
+      sum(!files_created)
+    ),
+    stringsAsFactors = FALSE
+  )
+  write_csv(diagnostics, path)
+  if (!all(diagnostics$passed)) {
+    stop("RIPD truncation plotting validation failed. See ", path)
+  }
+  diagnostics
+}
+
+ripd_truncation_scenario_type <- function(simulation_family, covariate_distribution) {
+  out <- rep(NA_character_, length(simulation_family))
+  out[simulation_family == "main" & covariate_distribution == "normal"] <- "Normal"
+  out[simulation_family == "main" & covariate_distribution == "chi2"] <- "Chi-squared"
+  out[simulation_family == "robustness_multicov"] <- "Multi-covariate"
+  out[simulation_family == "robustness_nonlinear"] <- "Nonlinear"
+  factor(out, levels = c("Normal", "Chi-squared", "Multi-covariate", "Nonlinear"))
+}
+
+ripd_truncation_plot <- function(plot_data) {
+  plot_data$allocation_label <- factor(
+    ripd_allocation_labels(plot_data$allocation),
+    levels = c("1:1", "3:1", "Treatment only")
+  )
+  plot_data$K <- factor(plot_data$K, levels = sort(unique(plot_data$K)))
+  plot_data$scenario_type <- factor(
+    plot_data$scenario_type,
+    levels = c("Normal", "Chi-squared", "Multi-covariate", "Nonlinear")
+  )
+  ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(x = n, y = truncation_rate, color = allocation_label,
+                 shape = allocation_label, linetype = allocation_label, group = allocation_label)
+  ) +
+    ggplot2::geom_line(linewidth = 0.8) +
+    ggplot2::geom_point(size = 2) +
+    legacy_shape_scale() +
+    ggplot2::scale_x_continuous(breaks = sort(unique(plot_data$n))) +
+    ggplot2::scale_y_continuous(limits = c(0, NA), labels = scales::percent_format(accuracy = 1)) +
+    ggplot2::labs(
+      x = "Target trial sample size n",
+      y = "Truncation rate",
+      color = "Allocation",
+      shape = "Allocation",
+      linetype = "Allocation"
+    ) +
+    ggplot2::facet_grid(scenario_type ~ K, labeller = ggplot2::labeller(
+      K = function(x) paste0(x, " studies"),
+      scenario_type = ggplot2::label_value
+    )) +
+    ggplot2::theme(legend.position = "bottom") +
+    ggplot2::guides(color = ggplot2::guide_legend(nrow = 1),
+                    shape = ggplot2::guide_legend(nrow = 1),
+                    fill = ggplot2::guide_legend(nrow = 1))
+}
+
+make_ripd_truncation_figures <- function(paths, nsim = 10L, pilot = TRUE) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for figure generation.")
+  }
+  if (!requireNamespace("scales", quietly = TRUE)) {
+    stop("Package 'scales' is required for truncation-rate axis labels.")
+  }
+  summary_file <- file.path(paths$summary, sprintf("ripd_truncation_summary_all_nsim%d.csv", nsim))
+  if (!file.exists(summary_file)) stop("RIPD truncation summary file not found: ", summary_file)
+
+  summary <- utils::read.csv(summary_file, stringsAsFactors = FALSE)
+  summary$K <- as.integer(summary$K)
+  summary$n <- as.integer(summary$n)
+  summary$truncation_rate <- as.numeric(summary$truncation_rate)
+  summary$scenario_type <- ripd_truncation_scenario_type(summary$simulation_family, summary$covariate_distribution)
+  summary <- summary[!is.na(summary$scenario_type), , drop = FALSE]
+  out_root <- file.path(figure_paths(paths, pilot = pilot)$supplement, "ripd_truncation")
+  dir.create(out_root, recursive = TRUE, showWarnings = FALSE)
+
+  specs <- data.frame(
+    formula_id = c("correct", "misspecified"),
+    file = c(
+      "ripd_truncation_model_specified.pdf",
+      "ripd_truncation_model_misspecified.pdf"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  old_files <- file.path(out_root, c(
+    "ripd_truncation_main_model_specified.pdf",
+    "ripd_truncation_main_model_misspecified.pdf",
+    "ripd_truncation_multicov_model_specified.pdf",
+    "ripd_truncation_multicov_model_misspecified.pdf",
+    "ripd_truncation_nonlinear_model_specified.pdf",
+    "ripd_truncation_nonlinear_model_misspecified.pdf"
+  ))
+  invisible(file.remove(old_files[file.exists(old_files)]))
+
+  generated <- character()
+  plotted <- list()
+  for (i in seq_len(nrow(specs))) {
+    spec <- specs[i, , drop = FALSE]
+    d <- summary[
+      summary$formula_id == spec$formula_id,
+      ,
+      drop = FALSE
+    ]
+    if (!nrow(d)) stop("No RIPD truncation rows for ", spec$formula_id)
+    expected_types <- c("Normal", "Chi-squared", "Multi-covariate", "Nonlinear")
+    missing_types <- setdiff(expected_types, as.character(unique(d$scenario_type)))
+    if (length(missing_types)) {
+      stop("Missing scenario types for RIPD truncation plot: ", paste(missing_types, collapse = ", "))
+    }
+    generated <- c(generated, save_plot(
+      ripd_truncation_plot(d),
+      file.path(out_root, spec$file),
+      8,
+      7
+    ))
+    plotted[[i]] <- d
+  }
+
+  generated <- normalizePath(generated, winslash = "/", mustWork = FALSE)
+  plot_data <- do.call(rbind, plotted)
+  validation <- validate_ripd_truncation_plot_data(
+    plot_data,
+    generated,
+    file.path(paths$summary, sprintf("ripd_truncation_figure_validation_nsim%d.csv", nsim))
+  )
+  write_csv(data.frame(file = generated, stringsAsFactors = FALSE), file.path(paths$summary, sprintf("ripd_truncation_generated_figures_nsim%d.csv", nsim)))
+  list(files = generated, validation = validation)
+}

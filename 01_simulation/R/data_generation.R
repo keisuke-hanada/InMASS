@@ -43,6 +43,36 @@ simulate_outcome_multicov <- function(z, x1, x2, sigma) {
     stats::rnorm(length(z), sd = sigma)
 }
 
+simulate_outcome_nonlinear <- function(z, x, sigma) {
+  beta0 <- 1
+  delta_t <- 2
+  beta1 <- -1
+  beta2 <- 0.25
+  beta3 <- 0.5
+  beta4 <- 0.25
+  beta0 + delta_t * z + beta1 * x + beta2 * x^2 + beta3 * z * x +
+    beta4 * z * (x^2 - 1) + stats::rnorm(length(z), sd = sigma)
+}
+
+add_nonlinear_aggregate_features <- function(aggregate_data) {
+  mean_idx <- aggregate_data$var == "mean"
+  var_idx <- aggregate_data$var == "var"
+  key <- paste(aggregate_data$strata, aggregate_data$z, aggregate_data$nsim, sep = "::")
+  x_mean <- aggregate_data$x[mean_idx]
+  names(x_mean) <- key[mean_idx]
+  x_var <- aggregate_data$x[var_idx]
+  names(x_var) <- key[var_idx]
+  second <- x_var[key[mean_idx]] + x_mean^2
+  centered_second <- second - 1
+  aggregate_data$x_second <- NA_real_
+  aggregate_data$x_centered_second <- NA_real_
+  aggregate_data$x_second[mean_idx] <- as.numeric(second)
+  aggregate_data$x_centered_second[mean_idx] <- as.numeric(centered_second)
+  aggregate_data$x_second[var_idx] <- NA_real_
+  aggregate_data$x_centered_second[var_idx] <- NA_real_
+  aggregate_data
+}
+
 generate_main_data <- function(spec, seed) {
   set.seed(seed)
   K <- as.integer(spec$K)
@@ -188,6 +218,84 @@ generate_multicov_data <- function(spec, seed) {
     n_external = n_external,
     mu1_external = mu1_external,
     mu2_external = mu2_external
+  )
+
+  list(
+    target_ipd = do.call(rbind, target_list),
+    strata_ipd = do.call(rbind, external_list),
+    strata_ad = do.call(rbind, aggregate_list),
+    params = params
+  )
+}
+
+generate_nonlinear_data <- function(spec, seed) {
+  set.seed(seed)
+  K <- as.integer(spec$K)
+  n <- as.integer(spec$n)
+  nsim <- as.integer(spec$nsim)
+  sigma <- spec$sigma
+
+  n_external <- 2L * round(stats::runif(K, n / 2, 2 * n))
+  mu_external <- if (K == 1L) 0 else 4 * (seq_len(K) - 1) / (K - 1) - 1
+
+  target_list <- vector("list", nsim)
+  external_list <- vector("list", nsim)
+  aggregate_list <- vector("list", nsim)
+
+  for (replicate in seq_len(nsim)) {
+    z_t <- target_allocation(n, spec$allocation)
+    x_t <- stats::rnorm(n, mean = 0, sd = 1)
+    target_ipd <- data.frame(
+      z = z_t,
+      x = x_t,
+      x_second = x_t^2,
+      x_centered_second = x_t^2 - 1,
+      yik = simulate_outcome_nonlinear(z_t, x_t, sigma),
+      nsim = replicate
+    )
+
+    external_by_study <- lapply(seq_len(K), function(k) {
+      nk <- n_external[k]
+      z_k <- external_allocation(nk)
+      x_k <- stats::rnorm(nk, mean = mu_external[k], sd = 1)
+      data.frame(
+        z = z_k,
+        x = x_k,
+        yik = simulate_outcome_nonlinear(z_k, x_k, sigma),
+        strata = k,
+        nsim = replicate
+      )
+    })
+
+    external_ipd <- do.call(rbind, external_by_study)
+    row.names(external_ipd) <- NULL
+    aggregate_data <- make_aggregate_data(external_ipd, arm_col = "z")
+    aggregate_data$nsim <- replicate
+    aggregate_data <- add_nonlinear_aggregate_features(aggregate_data)
+
+    target_list[[replicate]] <- target_ipd
+    external_list[[replicate]] <- external_ipd
+    aggregate_list[[replicate]] <- aggregate_data
+  }
+
+  params <- list(
+    scenario_id = spec$scenario_id,
+    allocation = spec$allocation,
+    n = n,
+    K = K,
+    strata = K,
+    nsim = nsim,
+    sigma = sigma,
+    formula = spec$formula_ma,
+    treatment_var = "z",
+    simulation_family = "robustness_nonlinear",
+    dgm = "nonlinear",
+    beta = c(delta_T = 2, beta0 = 1, beta1 = -1, beta2 = 0.25, beta3 = 0.5, beta4 = 0.25),
+    truth = spec$truth,
+    n_external = n_external,
+    mu_external = mu_external,
+    nonlinear_derived_features_from_aggregate = TRUE,
+    density_covariates = spec$density_covariates
   )
 
   list(

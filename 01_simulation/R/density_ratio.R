@@ -1,4 +1,6 @@
-estimate_density_ratio <- function(target_ipd, pseudo_ipd, formula_ma, ps_meta = 1) {
+estimate_density_ratio <- function(target_ipd, pseudo_ipd, formula_ma, ps_meta = 1,
+                                   density_covariates = NULL,
+                                   density_include_quadratic = TRUE) {
   formula_ma <- stats::as.formula(formula_ma)
   vars <- all.vars(formula_ma)
   arm_var <- vars[2]
@@ -27,8 +29,8 @@ estimate_density_ratio <- function(target_ipd, pseudo_ipd, formula_ma, ps_meta =
   }
 
   combined$set <- as.numeric(combined$strata == 0)
-  covariates <- vars[-c(1, 2)]
-  quadratic <- paste0("I(", covariates, "^2)")
+  covariates <- if (is.null(density_covariates)) vars[-c(1, 2)] else density_covariates
+  quadratic <- if (isTRUE(density_include_quadratic)) paste0("I(", covariates, "^2)") else character()
   ps_formula <- stats::reformulate(c(covariates, quadratic), response = "id")
   ps_dat <- rbind(data.frame(id = 1, combined[combined$set == 1, , drop = FALSE]),
                   data.frame(id = 0, combined))
@@ -46,7 +48,7 @@ estimate_density_ratio <- function(target_ipd, pseudo_ipd, formula_ma, ps_meta =
       ps_meta = ps_meta,
       source_count_mode = source_count_mode,
       density_ratio_covariates = paste(covariates, collapse = "+"),
-      density_ratio_quadratic_terms = paste(quadratic, collapse = "+")
+      density_ratio_quadratic_terms = if (length(quadratic)) paste(quadratic, collapse = "+") else "none"
     )
   )
 }
