@@ -148,7 +148,57 @@ fit_inmass_replicate <- function(target_ipd, data_mean, data_var, formula, formu
   )
 }
 
-run_estimators_for_scenario <- function(dat, spec, formula_spec, base_seed = 1234L) {
+run_estimators_for_replicate <- function(replicate, dat, spec, formula_spec, base_seed = 1234L,
+                                         treatment_var = NULL, density_covariates = NULL,
+                                         density_include_quadratic = TRUE) {
+  if (is.null(treatment_var)) treatment_var <- spec$treatment_var %||% "x1k"
+  target_ipd <- dat$target_ipd[dat$target_ipd$nsim == replicate, , drop = FALSE]
+  ad <- dat$strata_ad[dat$strata_ad$nsim == replicate, , drop = FALSE]
+  data_mean <- ad[ad$var == "mean", , drop = FALSE]
+  data_var <- ad[ad$var == "var", , drop = FALSE]
+
+  rows <- list()
+  rows[[1L]] <- fit_ipd_replicate(target_ipd, formula_spec$formula, spec$scenario_id, replicate, formula_spec$formula_id, treatment_var)
+  rows[[2L]] <- fit_inmass_replicate(
+    target_ipd, data_mean, data_var, formula_spec$formula, spec$formula_ma,
+    spec$scenario_id, replicate, formula_spec$formula_id,
+    spec$allocation, spec$K, base_seed,
+    density_covariates = density_covariates,
+    density_include_quadratic = density_include_quadratic
+  )
+  rows[[3L]] <- fit_meta_replicate(target_ipd, data_mean, data_var, formula_spec$formula, spec$scenario_id, replicate, formula_spec$formula_id, treatment_var)
+  rows[[4L]] <- fit_plugin_replicate(
+    target_ipd, data_mean, data_var, formula_spec$formula,
+    spec$scenario_id, replicate, formula_spec$formula_id, spec$allocation
+  )
+  do.call(rbind, rows)
+}
+
+run_estimators_for_replicate_safe <- function(replicate, dat, spec, formula_spec, base_seed = 1234L,
+                                             treatment_var = NULL, density_covariates = NULL,
+                                             density_include_quadratic = TRUE) {
+  tryCatch(
+    run_estimators_for_replicate(
+      replicate, dat, spec, formula_spec, base_seed,
+      treatment_var = treatment_var,
+      density_covariates = density_covariates,
+      density_include_quadratic = density_include_quadratic
+    ),
+    error = function(e) {
+      diagnostics <- paste("replicate-level estimator failure:", conditionMessage(e))
+      do.call(rbind, lapply(
+        c("target_only", "inmass", "meta_regression", "plugin"),
+        function(estimator) result_row(
+          spec$scenario_id, replicate, estimator, formula_spec$formula_id,
+          diagnostics = diagnostics
+        )
+      ))
+    }
+  )
+}
+
+run_estimators_for_scenario <- function(dat, spec, formula_spec, base_seed = 1234L,
+                                        n_workers = 1L, cluster = NULL) {
   nsim <- dat$params$nsim
   treatment_var <- spec$treatment_var %||% "x1k"
   density_covariates <- spec$density_covariates %||% NULL
@@ -160,32 +210,19 @@ run_estimators_for_scenario <- function(dat, spec, formula_spec, base_seed = 123
   } else {
     TRUE
   }
-  rows <- vector("list", nsim * 4L)
-  pos <- 1L
-  for (replicate in seq_len(nsim)) {
-    target_ipd <- dat$target_ipd[dat$target_ipd$nsim == replicate, , drop = FALSE]
-    ad <- dat$strata_ad[dat$strata_ad$nsim == replicate, , drop = FALSE]
-    data_mean <- ad[ad$var == "mean", , drop = FALSE]
-    data_var <- ad[ad$var == "var", , drop = FALSE]
-
-    rows[[pos]] <- fit_ipd_replicate(target_ipd, formula_spec$formula, spec$scenario_id, replicate, formula_spec$formula_id, treatment_var)
-    pos <- pos + 1L
-    rows[[pos]] <- fit_inmass_replicate(
-      target_ipd, data_mean, data_var, formula_spec$formula, spec$formula_ma,
-      spec$scenario_id, replicate, formula_spec$formula_id,
-      spec$allocation, spec$K, base_seed,
-      density_covariates = density_covariates,
-      density_include_quadratic = density_include_quadratic
-    )
-    pos <- pos + 1L
-    rows[[pos]] <- fit_meta_replicate(target_ipd, data_mean, data_var, formula_spec$formula, spec$scenario_id, replicate, formula_spec$formula_id, treatment_var)
-    pos <- pos + 1L
-    rows[[pos]] <- fit_plugin_replicate(
-      target_ipd, data_mean, data_var, formula_spec$formula,
-      spec$scenario_id, replicate, formula_spec$formula_id, spec$allocation
-    )
-    pos <- pos + 1L
-  }
+  rows <- parallel_lapply(
+    seq_len(nsim),
+    run_estimators_for_replicate_safe,
+    dat = dat,
+    spec = spec,
+    formula_spec = formula_spec,
+    base_seed = base_seed,
+    treatment_var = treatment_var,
+    density_covariates = density_covariates,
+    density_include_quadratic = density_include_quadratic,
+    n_workers = n_workers,
+    cluster = cluster
+  )
   do.call(rbind, rows)
 }
 

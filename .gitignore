@@ -28,6 +28,7 @@ temp/
 # Logs
 *.log
 logs/
+logs_*/
 
 # OS/editor files
 .DS_Store
@@ -35,5 +36,7 @@ Thumbs.db
 .vscode/
 
 results_plugin*/
-results/raw/
+results/
 results_*/
+figures/
+.agents/

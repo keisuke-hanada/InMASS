@@ -23,33 +23,44 @@ scenario_metadata_for_truncation <- function(spec, formula_spec, replicate) {
   )
 }
 
-collect_ripd_truncation_for_scenario <- function(dat, spec, formulas, base_seed = 1234L) {
-  rows <- list()
-  pos <- 1L
-  for (j in seq_len(nrow(formulas))) {
-    formula_spec <- as.list(formulas[j, , drop = FALSE])
-    for (replicate in seq_len(dat$params$nsim)) {
-      ad <- dat$strata_ad[dat$strata_ad$nsim == replicate, , drop = FALSE]
-      data_mean <- ad[ad$var == "mean", , drop = FALSE]
-      data_var <- ad[ad$var == "var", , drop = FALSE]
-      meta_fit <- fit_meta_regression(data_mean, data_var, spec$formula_ma)
-      seed <- replicate_seed(spec$scenario_id, replicate, paste("inmass", formula_spec$formula_id), base_seed)
-      pseudo <- reconstruct_pseudo_ipd(
-        data_mean,
-        data_var,
-        spec$formula_ma,
-        meta_fit,
-        as.integer(spec$K),
-        seed,
-        metadata = scenario_metadata_for_truncation(spec, formula_spec, replicate)
-      )
-      diag <- attr(pseudo, "truncation_diagnostics")
-      if (!is.null(diag) && nrow(diag)) {
-        rows[[pos]] <- diag
-        pos <- pos + 1L
-      }
-    }
-  }
+collect_ripd_truncation_for_job <- function(job, dat, spec, formulas, base_seed = 1234L) {
+  formula_spec <- as.list(formulas[job$formula_index, , drop = FALSE])
+  replicate <- job$replicate
+  ad <- dat$strata_ad[dat$strata_ad$nsim == replicate, , drop = FALSE]
+  data_mean <- ad[ad$var == "mean", , drop = FALSE]
+  data_var <- ad[ad$var == "var", , drop = FALSE]
+  meta_fit <- fit_meta_regression(data_mean, data_var, spec$formula_ma)
+  seed <- replicate_seed(spec$scenario_id, replicate, paste("inmass", formula_spec$formula_id), base_seed)
+  pseudo <- reconstruct_pseudo_ipd(
+    data_mean,
+    data_var,
+    spec$formula_ma,
+    meta_fit,
+    as.integer(spec$K),
+    seed,
+    metadata = scenario_metadata_for_truncation(spec, formula_spec, replicate)
+  )
+  attr(pseudo, "truncation_diagnostics")
+}
+
+collect_ripd_truncation_for_scenario <- function(dat, spec, formulas, base_seed = 1234L,
+                                                 n_workers = 1L, cluster = NULL) {
+  jobs <- expand.grid(
+    formula_index = seq_len(nrow(formulas)),
+    replicate = seq_len(dat$params$nsim),
+    KEEP.OUT.ATTRS = FALSE
+  )
+  rows <- parallel_lapply(
+    split(jobs, seq_len(nrow(jobs))),
+    collect_ripd_truncation_for_job,
+    dat = dat,
+    spec = spec,
+    formulas = formulas,
+    base_seed = base_seed,
+    n_workers = n_workers,
+    cluster = cluster
+  )
+  rows <- rows[vapply(rows, function(x) !is.null(x) && nrow(x) > 0, logical(1))]
   if (!length(rows)) return(data.frame())
   do.call(rbind, rows)
 }
