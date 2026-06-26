@@ -66,6 +66,14 @@ The script writes results, summaries, figures, logs, and a run manifest to the o
 - `results_final_trunc/`
 - `logs_final/final_simulation_manifest.csv`
 
+After running the simulation workflow, the nonlinear robustness MSE figure can optionally be redrawn with the target-only `3:1` method separated from the other methods:
+
+```powershell
+Rscript 01_simulation/run_plot_calibration.R
+```
+
+This post-processing script does not rerun simulations. It reads the existing nonlinear robustness results and rewrites only `robustness_nonlinear_mse.pdf` and `robustness_nonlinear_mse_3to1_only.pdf` in the nonlinear robustness figure directory.
+
 ## Reproducing the Case Study
 
 The case-study analysis can be reproduced by running:
