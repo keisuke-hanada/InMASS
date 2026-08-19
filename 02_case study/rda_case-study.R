@@ -5,6 +5,24 @@ set.seed(202412)
 
 source("propose_functions.R")
 
+case_output_dir <- "02_case study"
+
+save_forest_plot <- function(model, slab, filename) {
+  output_path <- file.path(case_output_dir, filename)
+  grDevices::pdf(output_path, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  metafor::forest(model, slab = slab)
+  invisible(output_path)
+}
+
+run_with_pdf_device <- function(filename, expression) {
+  output_path <- file.path(case_output_dir, filename)
+  grDevices::pdf(output_path, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  result <- force(expression)
+  result
+}
+
 ################################################################################
 ### Meta-analysis by Sanguankeo et al (2015)
 ################################################################################
@@ -28,7 +46,11 @@ dat02 <- dat01 %>%
 dat02
 
 ma0 <- rma(yi=yi, vi=vi, data=dat02)
-forest(ma0, slab=dat02$Study)
+save_forest_plot(
+  ma0,
+  slab = dat02$Study,
+  filename = "case-study-forest-annual-egfr-change.pdf"
+)
 
 
 ### create outcome and covariate of the statin and Control group
@@ -46,7 +68,11 @@ dat03$z1 - dat03$z0
 dat03$yi
 dat03
 ma1 <- rma(yi=yi, vi=vi, data=dat03)
-forest(ma1, slab=dat03$Study)
+save_forest_plot(
+  ma1,
+  slab = dat03$Study,
+  filename = "case-study-forest-total-egfr-change.pdf"
+)
 
 
 
@@ -78,6 +104,15 @@ res.ma2 <- data.frame(b=c(ma2$b, ma2$tau2),
 res.ma2 <- round(res.ma2, 3)
 rownames(res.ma2) <- c("intercept", "treatment", "baseline eGFR", "$tau^2$")
 res.ma2
+
+res.ma2_output <- data.frame(
+  term = c("intercept", "treatment", "baseline eGFR", "tau^2"),
+  estimate = sprintf("%.2f", res.ma2$b),
+  standard_error = sprintf("%.2f", res.ma2$se),
+  confidence_interval = sprintf("[%.2f, %.2f]", res.ma2$cil, res.ma2$ciu),
+  stringsAsFactors = FALSE
+)
+res.ma2_output
 
 library(xtable)
 res.ma2_latex <- xtable(res.ma2)
@@ -135,8 +170,17 @@ dat14$strata <- as.numeric(factor(dat14$study))
 dat15$strata <- as.numeric(factor(dat15$study))
 
 
-res01 <- inmass(formula = yi ~ z + x, formula.ma = yi ~ z + x, 
-               data.ipd = dat13, data.ma.mean = dat14, data.ma.var = dat15, strata=4)
+res01 <- run_with_pdf_device(
+  "case-study-diagnostic-reconstructed-data.pdf",
+  inmass(
+    formula = yi ~ z + x,
+    formula.ma = yi ~ z + x,
+    data.ipd = dat13,
+    data.ma.mean = dat14,
+    data.ma.var = dat15,
+    strata = 4
+  )
+)
 
 summary(res01)
 confint(res01)
@@ -279,11 +323,33 @@ res <- res %>%
     ci = paste("[", `2.5 %`, ", ", `97.5 %`, "]", sep="")
   ) %>%
   select(method, n1, n0, yi, ci, `t value`, `Pr(>|t|)`)
+
+not_computable <- res$method == "Single-arm"
+res$yi[not_computable] <- "NC"
+res$ci[not_computable] <- "NC"
+res$`t value` <- ifelse(is.na(res$`t value`), "NC", as.character(res$`t value`))
+res$`Pr(>|t|)` <- ifelse(
+  is.na(res$`Pr(>|t|)`) | res$`Pr(>|t|)` == "NA",
+  "NC",
+  res$`Pr(>|t|)`
+)
 res
 
-write.csv(formatted_madat, file="02_case study/meta-analysis-data.csv")
-write.csv(res, file="02_case study/rda_case_study.csv")
-
-
+write.csv(
+  formatted_madat,
+  file = file.path(case_output_dir, "meta-analysis-data.csv"),
+  row.names = FALSE
+)
+write.csv(
+  res.ma2_output,
+  file = file.path(case_output_dir, "case-study-meta-regression.csv"),
+  row.names = FALSE
+)
+write.csv(
+  res,
+  file = file.path(case_output_dir, "rda_case_study.csv"),
+  row.names = FALSE,
+  na = "NC"
+)
 
 

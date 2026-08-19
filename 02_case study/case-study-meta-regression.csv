@@ -1,0 +1,5 @@
+"term","estimate","standard_error","confidence_interval"
+"intercept","-3.62","16.45","[-35.85, 28.62]"
+"treatment","1.42","2.35","[-3.19, 6.02]"
+"baseline eGFR","0.01","0.31","[-0.59, 0.62]"
+"tau^2","10.92","9.33","[3.68, 58.16]"
