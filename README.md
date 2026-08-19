@@ -133,16 +133,11 @@ To load the core functions directly in an R session:
 source("propose_functions.R")
 ```
 
-## Archived Results and Version Citation
+## Archived Simulation Results
 
-The complete 10,000-replication simulation results and logs will be archived on Zenodo:
+The complete 10,000-replication simulation results and logs are available on Zenodo:
 
 - Zenodo DOI: [10.5281/zenodo.22009279](https://doi.org/10.5281/zenodo.22009279)
-
-For exact reproducibility, cite the Zenodo results record together with a fixed GitHub Release and the full commit hash used for that Release. Do not cite only the moving `main` branch. The final citation information will be provided in the following form:
-
-- GitHub Release: `https://github.com/keisuke-hanada/InMASS/releases/tag/<release-tag>`
-- Git commit: `https://github.com/keisuke-hanada/InMASS/commit/<full-commit-hash>`
 
 ## Contact
 
