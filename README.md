@@ -137,7 +137,7 @@ source("propose_functions.R")
 
 The complete 10,000-replication simulation results and logs will be archived on Zenodo:
 
-- Zenodo DOI: `doi:xxx` (placeholder)
+- Zenodo DOI: [10.5281/zenodo.22009279](https://doi.org/10.5281/zenodo.22009279)
 
 For exact reproducibility, cite the Zenodo results record together with a fixed GitHub Release and the full commit hash used for that Release. Do not cite only the moving `main` branch. The final citation information will be provided in the following form:
 
